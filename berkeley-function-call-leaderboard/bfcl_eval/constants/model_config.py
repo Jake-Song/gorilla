@@ -1669,6 +1669,18 @@ local_inference_model_map = {
         is_fc_model=True,
         underscore_to_dot=False,
     ),
+    "qwen-finetuned-FC": ModelConfig(
+        model_name="Jakemu/Qwen3-4B-Instruct-2507-awm-async-grpo",
+        display_name="qwen-finetuned-FC (FC)",
+        url="https://huggingface.co/Jakemu/Qwen3-4B-Instruct-2507-awm-async-grpo",
+        org="Qwen",
+        license="apache-2.0",
+        model_handler=QwenFCHandler,
+        input_price=None,
+        output_price=None,
+        is_fc_model=True,
+        underscore_to_dot=False,
+    ),
     "Qwen/Qwen3-4B-Instruct-2507": ModelConfig(
         model_name="Qwen/Qwen3-4B-Instruct-2507",
         display_name="Qwen3-4B-Instruct-2507 (Prompt)",
