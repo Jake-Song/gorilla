@@ -2218,7 +2218,7 @@ third_party_inference_model_map = {
     "qwen3-4b-think-FC": ModelConfig(
         model_name="qwen3-4b-think-FC",
         display_name="Qwen3-4B-Think (FC)",
-        url="/content/drive/MyDrive/huggingface/models/Qwen3-4B",
+        url="https://huggingface.co/Qwen/Qwen3-4B",
         org="Qwen",
         license="apache-2.0",
         model_handler=QwenAgentThinkHandler,
