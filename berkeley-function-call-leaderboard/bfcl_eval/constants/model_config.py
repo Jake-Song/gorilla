@@ -1695,6 +1695,19 @@ local_inference_model_map = {
         is_fc_model=True,
         underscore_to_dot=False,
     ),
+    #custom model
+    "Arctic-AWM-4B-FC": ModelConfig(
+        model_name="Snowflake/Arctic-AWM-4B",
+        display_name="Arctic-AWM-4B (FC)",
+        url="https://huggingface.co/Snowflake/Arctic-AWM-4B",
+        org="Qwen",
+        license="apache-2.0",
+        model_handler=QwenFCHandler,
+        input_price=None,
+        output_price=None,
+        is_fc_model=True,
+        underscore_to_dot=False,
+    ),
     "Qwen/Qwen3-4B-Instruct-2507": ModelConfig(
         model_name="Qwen/Qwen3-4B-Instruct-2507",
         display_name="Qwen3-4B-Instruct-2507 (Prompt)",
