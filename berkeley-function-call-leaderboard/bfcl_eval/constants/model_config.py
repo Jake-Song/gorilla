@@ -1671,7 +1671,7 @@ local_inference_model_map = {
     ),
     #custom model
     "Qwen/Qwen3-4B-Think-FC": ModelConfig(
-        model_name="Qwen/Qwen3-4B",
+        model_name="Qwen/Qwen3-4B-Thinking-2507",
         display_name="Qwen3-4B-Think (FC)",
         url="https://huggingface.co/Qwen/Qwen3-4B-Thinking-2507",
         org="Qwen",
