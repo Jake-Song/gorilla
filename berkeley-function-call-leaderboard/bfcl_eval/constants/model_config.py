@@ -1673,7 +1673,7 @@ local_inference_model_map = {
     "Qwen/Qwen3-4B-Think-FC": ModelConfig(
         model_name="Qwen/Qwen3-4B",
         display_name="Qwen3-4B-Think (FC)",
-        url="https://huggingface.co/Qwen/Qwen3-4B",
+        url="https://huggingface.co/Qwen/Qwen3-4B-Thinking-2507",
         org="Qwen",
         license="apache-2.0",
         model_handler=QwenFCHandler,
