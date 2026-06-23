@@ -1684,9 +1684,9 @@ local_inference_model_map = {
     ),
     #custom model
     "qwen-finetuned-FC": ModelConfig(
-        model_name="Jakemu/Qwen3-4B-Instruct-2507-awm-async-grpo",
+        model_name="Jakemu/Qwen3-4B-Thinking-awm-async-grpo",
         display_name="qwen-finetuned-FC (FC)",
-        url="https://huggingface.co/Jakemu/Qwen3-4B-Instruct-2507-awm-async-grpo",
+        url="https://huggingface.co/Jakemu/Qwen3-4B-Thinking-awm-async-grpo",
         org="Qwen",
         license="apache-2.0",
         model_handler=QwenFCHandler,
