@@ -116,6 +116,118 @@ def _coerce_args(args: Any) -> dict:
     return args if isinstance(args, dict) else {}
 
 
+def _strip_reasoning(text: str) -> str:
+    """Drop a leading `<think>` reasoning block, keeping only the final answer.
+
+    Native tool-calling at training time produced `<tool_call>` JSON, but the BFCL
+    eval prompt embeds the catalog as plain text, so the model instead writes the
+    prose-example form `call_tool(tool_name=..., arguments=...)`. A `</think>`
+    means reasoning finished — parse what follows it. An unclosed `<think>` means
+    the generation hit max_tokens mid-thought and never emitted an answer, so there
+    is nothing to parse.
+    """
+    if "</think>" in text:
+        return text.rsplit("</think>", 1)[1]
+    if "<think>" in text:
+        return ""
+    return text
+
+
+def _balanced_call(text: str, start: int) -> str | None:
+    """Return the `name(...)` substring from `start` to its matching `)`.
+
+    Tracks string literals so parens/braces inside argument values don't confuse
+    the depth count.
+    """
+    depth = 0
+    quote = None
+    j = text.index("(", start)
+    while j < len(text):
+        c = text[j]
+        if quote:
+            if c == "\\":
+                j += 2
+                continue
+            if c == quote:
+                quote = None
+        elif c in "\"'":
+            quote = c
+        elif c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+            if depth == 0:
+                return text[start : j + 1]
+        j += 1
+    return None
+
+
+def _parse_call_nodes(text: str) -> list[ast.Call]:
+    """Extract `ast.Call` nodes for the bare `call_tool`/`list_tools` calls.
+
+    Clean AWM output is just call lines, so parse the whole block first; if stray
+    prose makes that a SyntaxError, fall back to extracting each call span.
+    """
+    try:
+        tree = ast.parse(text, mode="exec")
+        return [
+            n.value
+            for n in tree.body
+            if isinstance(n, ast.Expr) and isinstance(n.value, ast.Call)
+        ]
+    except SyntaxError:
+        pass
+
+    nodes: list[ast.Call] = []
+    for m in re.finditer(r"\b(?:call_tool|list_tools)\s*\(", text):
+        span = _balanced_call(text, m.start())
+        if span is None:
+            continue
+        try:
+            node = ast.parse(span, mode="eval").body
+        except SyntaxError:
+            continue
+        if isinstance(node, ast.Call):
+            nodes.append(node)
+    return nodes
+
+
+def _literal(node: ast.AST | None) -> Any:
+    if node is None:
+        return None
+    try:
+        return ast.literal_eval(node)
+    except (ValueError, SyntaxError):
+        return None
+
+
+def _decode_bare_calls(result: str) -> list[dict]:
+    """Decode the bare-text `call_tool(...)`/`list_tools(...)` form the model emits.
+
+    The decoder's `<tool_call>` JSON path matches the native tool-calling format
+    used in training, but at eval time the model follows the system-prompt example
+    and writes plain `call_tool(tool_name="X", arguments={...})` text instead, which
+    that path cannot see. This rewrites each call to the `{tool_name: args}` shape
+    `decode_execute` already feeds the executor.
+    """
+    text = _strip_reasoning(result).strip()
+    if not text:
+        return []
+
+    decoded: list[dict] = []
+    for node in _parse_call_nodes(text):
+        fname = node.func.id if isinstance(node.func, ast.Name) else None
+        if fname == "list_tools":
+            decoded.append({"list_tools": {}})
+        elif fname == "call_tool":
+            kw = {k.arg: k.value for k in node.keywords}
+            tool_name = _literal(kw.get("tool_name"))
+            inner = _coerce_args(_literal(kw.get("arguments")))
+            if isinstance(tool_name, str) and tool_name:
+                decoded.append({tool_name: inner})
+    return decoded
+
+
 class AWMFormatHandler(QwenHandler):
     """Qwen OSS prompting handler that speaks the AWM list_tools/call_tool format."""
 
@@ -171,5 +283,10 @@ class AWMFormatHandler(QwenHandler):
                 elif name:
                     # Model invoked the MCP tool directly without the call_tool wrapper.
                     decoded.append({name: _coerce_args(args)})
+
+        if not decoded:
+            # No `<tool_call>` JSON found: the model wrote the system-prompt's bare
+            # `call_tool(tool_name=..., arguments=...)` text form instead.
+            decoded = _decode_bare_calls(result)
 
         return decoded_output_to_execution_list(decoded)
