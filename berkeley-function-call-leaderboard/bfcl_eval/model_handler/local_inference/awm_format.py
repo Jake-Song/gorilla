@@ -79,6 +79,13 @@ task is actually done.
 When you have completed the task, stop calling tools."""
 
 _TOOL_CALL_RE = re.compile(r"<tool_call>\s*(.*?)\s*</tool_call>", re.DOTALL)
+_LIST_TOOLS_CALL_RE = re.compile(r"\blist_tools\s*\(")
+
+# Sliding context window, kept in parity with training
+# (open-env/openenv_awm_async_grpo.py CONTEXT_WINDOW_TURNS): each query keeps the
+# system prompt + user task turns + the list_tools exchange, plus only this many of
+# the most recent assistant/tool exchanges.
+CONTEXT_WINDOW_TURNS = 3
 
 
 def _format_tool_catalog(functions: list[dict]) -> str:
@@ -228,6 +235,41 @@ def _decode_bare_calls(result: str) -> list[dict]:
     return decoded
 
 
+def _window_messages(messages: list[dict]) -> list[dict]:
+    """Mirror the training-time sliding context on the eval message history.
+
+    Counterpart to `_windowed_messages` in open-env/openenv_awm_async_grpo.py.
+    The history is `system`, the `user` task turns, `assistant` turns, and `tool`
+    results. We always keep every system/user message (the task itself) and the
+    first `list_tools` exchange (parity with training, which pins it), and drop all
+    but the `CONTEXT_WINDOW_TURNS` most recent assistant/tool exchanges. An exchange
+    is one assistant message plus the tool results that follow it.
+    """
+    assistant_idxs = [i for i, m in enumerate(messages) if m["role"] == "assistant"]
+    if len(assistant_idxs) <= CONTEXT_WINDOW_TURNS:
+        return messages
+
+    keep = set(assistant_idxs[-CONTEXT_WINDOW_TURNS:])
+    for i in assistant_idxs:
+        if _LIST_TOOLS_CALL_RE.search(messages[i].get("content") or ""):
+            keep.add(i)
+            break
+
+    windowed: list[dict] = []
+    cur_assistant = None
+    for i, m in enumerate(messages):
+        role = m["role"]
+        if role in ("system", "user"):
+            windowed.append(m)
+        elif role == "assistant":
+            cur_assistant = i
+            if i in keep:
+                windowed.append(m)
+        elif role == "tool" and cur_assistant in keep:
+            windowed.append(m)
+    return windowed
+
+
 class AWMFormatHandler(QwenHandler):
     """Qwen OSS prompting handler that speaks the AWM list_tools/call_tool format."""
 
@@ -248,6 +290,14 @@ class AWMFormatHandler(QwenHandler):
             prompts.insert(0, {"role": "system", "content": system_prompt})
 
         return {"message": [], "function": functions}
+
+    @override
+    def _format_prompt(self, messages, function):
+        # Render only a windowed view of the history so the model sees the same
+        # bounded context it was trained under. The full history stays in
+        # inference_data["message"] and is re-windowed every turn, matching the
+        # training worker which recomputes its window each turn.
+        return super()._format_prompt(_window_messages(messages), function)
 
     @override
     def decode_execute(self, result, has_tool_call_tag=False):
