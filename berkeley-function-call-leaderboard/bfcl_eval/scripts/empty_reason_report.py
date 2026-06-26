@@ -70,6 +70,42 @@ def _iter_entries(path: Path):
             yield json.loads(line)
 
 
+def tally(entries) -> dict:
+    """Classify the terminal reason of every multi-turn turn in `entries`.
+
+    Returns a summary dict with the per-category `counts`, the `non_benign`
+    terminations (everything but a clean task-complete finish), and the episode
+    and turn totals. Shared by the CLI and by `bfcl evaluate`.
+    """
+    counts = Counter()
+    n_episodes = n_turns = 0
+    non_benign = []
+
+    for entry in entries:
+        inference_log = entry.get("inference_log")
+        if not inference_log:
+            continue
+        n_episodes += 1
+        for turn_index, turn in enumerate(inference_log):
+            n_turns += 1
+            category = None
+            for content in _handler_log_contents(turn):
+                hit = _classify(content)
+                if hit:
+                    category = hit  # last terminal message wins
+            if category:
+                counts[category] += 1
+                if category not in _BENIGN:
+                    non_benign.append({"id": entry["id"], "turn": turn_index, "category": category})
+
+    return {
+        "episodes": n_episodes,
+        "turns": n_turns,
+        "counts": dict(counts),
+        "non_benign": non_benign,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("path", help="A result .json file or a directory of them.")
@@ -79,45 +115,16 @@ def main() -> None:
     root = Path(args.path)
     files = sorted(root.rglob("*_result.json")) if root.is_dir() else [root]
 
-    counts = Counter()
-    n_episodes = n_turns = 0
-    non_benign = []  # (scenario_id, turn_index, category)
-
-    for file in files:
-        for entry in _iter_entries(file):
-            inference_log = entry.get("inference_log")
-            if not inference_log:
-                continue
-            n_episodes += 1
-            for turn_index, turn in enumerate(inference_log):
-                n_turns += 1
-                category = None
-                for content in _handler_log_contents(turn):
-                    hit = _classify(content)
-                    if hit:
-                        category = hit  # last terminal message wins
-                if category:
-                    counts[category] += 1
-                    if category not in _BENIGN:
-                        non_benign.append((entry["id"], turn_index, category))
+    report = tally(entry for file in files for entry in _iter_entries(file))
+    counts = report["counts"]
+    non_benign = report["non_benign"]
 
     if args.json:
-        print(json.dumps(
-            {
-                "files": len(files),
-                "episodes": n_episodes,
-                "turns": n_turns,
-                "counts": dict(counts),
-                "non_benign": [
-                    {"id": i, "turn": t, "category": c} for i, t, c in non_benign
-                ],
-            },
-            indent=2,
-        ))
+        print(json.dumps({"files": len(files), **report}, indent=2))
         return
 
     print(f"Empty/terminal-turn report  "
-          f"({len(files)} file(s), {n_episodes} episodes, {n_turns} turns)\n")
+          f"({len(files)} file(s), {report['episodes']} episodes, {report['turns']} turns)\n")
     width = max((len(_LABELS[c]) for c in counts), default=len("terminal turns total"))
     for category in sorted(counts, key=lambda c: -counts[c]):
         label = _LABELS.get(category, category)
@@ -126,8 +133,8 @@ def main() -> None:
 
     if non_benign:
         print(f"\nNon-benign terminations ({len(non_benign)}):")
-        for scenario_id, turn_index, category in non_benign:
-            print(f"  {scenario_id}  turn{turn_index}  {category}")
+        for item in non_benign:
+            print(f"  {item['id']}  turn{item['turn']}  {item['category']}")
 
 
 if __name__ == "__main__":

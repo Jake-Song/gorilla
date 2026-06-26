@@ -16,6 +16,7 @@ from bfcl_eval.eval_checker.multi_turn_eval.multi_turn_utils import (
     is_empty_execute_response,
 )
 from bfcl_eval.model_handler.base_handler import BaseHandler
+from bfcl_eval.scripts.empty_reason_report import tally
 from bfcl_eval.model_handler.utils import parse_prompt_variation_params
 from bfcl_eval.utils import *
 from dotenv import load_dotenv
@@ -576,6 +577,17 @@ def multi_turn_runner(
         else:
             entry_result["inference_log"] = model_result[i].get("inference_log", "")
             result.append(entry_result)
+
+    # Report why turns ended without an executable tool call, into the score dir.
+    empty_reason = tally(model_result)
+    write_list_of_dicts_to_file(
+        f"{VERSION_PREFIX}_{test_category}_empty_reason.json",
+        [{"counts": empty_reason["counts"],
+          "episodes": empty_reason["episodes"],
+          "turns": empty_reason["turns"]},
+         *empty_reason["non_benign"]],
+        score_dir / model_name / get_directory_structure_by_category(test_category),
+    )
 
     return save_eval_results(
         result, correct_count, model_result, test_category, model_name, score_dir
