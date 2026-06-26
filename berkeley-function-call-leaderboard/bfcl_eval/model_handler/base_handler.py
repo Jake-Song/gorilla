@@ -271,11 +271,12 @@ class BaseHandler:
                     )
 
                     if is_empty_execute_response(decoded_model_responses):
-                        print("Empty response from the model. Proceed to next turn.")
+                        empty_reason = self._empty_response_reason(model_responses)
+                        print(empty_reason)
                         current_step_inference_log.append(
                             {
                                 "role": "handler_log",
-                                "content": f"Empty response from the model. Proceed to next turn.",
+                                "content": empty_reason,
                                 "model_response_decoded": decoded_model_responses,
                             }
                         )
@@ -563,11 +564,12 @@ class BaseHandler:
 
                     model_response_data["model_responses_decoded"] = decoded_model_responses
                     if is_empty_execute_response(decoded_model_responses):
-                        print("Empty response from the model. Proceed to next turn.")
+                        empty_reason = self._empty_response_reason(model_responses)
+                        print(empty_reason)
                         current_step_inference_log.append(
                             {
                                 "role": "handler_log",
-                                "content": f"Empty response from the model. Proceed to next turn.",
+                                "content": empty_reason,
                                 "model_response_decoded": decoded_model_responses,
                             }
                         )
@@ -764,6 +766,14 @@ class BaseHandler:
         This method takes raw model output (from `_parse_query_response_xxx`) and convert it to standard execute checker input.
         """
         raise NotImplementedError
+
+    def _empty_response_reason(self, model_responses) -> str:
+        """Message logged when a decoded multi-turn response has no executable call.
+
+        Handlers may override to explain *why* the turn ended (e.g. task finished
+        vs. truncated output) instead of the generic default.
+        """
+        return "Empty response from the model. Proceed to next turn."
 
     @final
     def write(self, result, result_dir, update_mode=False):

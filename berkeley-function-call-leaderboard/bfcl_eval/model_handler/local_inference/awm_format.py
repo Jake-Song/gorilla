@@ -301,6 +301,30 @@ class AWMFormatHandler(QwenHandler):
         return super()._format_prompt(_window_messages(messages), function)
 
     @override
+    def _empty_response_reason(self, model_responses) -> str:
+        text = model_responses or ""
+        if "<think>" in text and "</think>" not in text:
+            return (
+                "Response truncated mid-reasoning (hit the generation length cap) "
+                "before emitting a tool call. Proceed to next turn."
+            )
+        answer = _strip_reasoning(text).strip()
+        if not answer:
+            return "Empty model output (no content). Proceed to next turn."
+        if _parse_call_nodes(answer):
+            # Parsed as a call but decode_execute dropped it: a direct MCP call
+            # (e.g. `ls(...)`) instead of the call_tool wrapper, or a malformed
+            # call_tool whose tool_name/arguments did not resolve.
+            return (
+                "Model emitted an undecodable tool call (direct MCP call without "
+                "the call_tool wrapper, or malformed call_tool). Proceed to next turn."
+            )
+        return (
+            "Model returned a final answer with no tool call "
+            "(task presumed complete). Proceed to next turn."
+        )
+
+    @override
     def decode_execute(self, result, has_tool_call_tag=False):
         blocks = _TOOL_CALL_RE.findall(result)
         if not blocks:
