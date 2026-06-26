@@ -57,6 +57,7 @@ from bfcl_eval.model_handler.local_inference.phi_fc import PhiFCHandler
 from bfcl_eval.model_handler.local_inference.quick_testing_oss import (
     QuickTestingOSSHandler,
 )
+from bfcl_eval.model_handler.local_inference.awm_format import AWMFormatHandler
 from bfcl_eval.model_handler.local_inference.qwen import QwenHandler
 from bfcl_eval.model_handler.local_inference.qwen_fc import QwenFCHandler
 from bfcl_eval.model_handler.local_inference.pelican_vl_fc import PelicanVLFCHandler
@@ -1682,6 +1683,18 @@ local_inference_model_map = {
         is_fc_model=True,
         underscore_to_dot=False,
     ),
+    "qwen-base-awm": ModelConfig(
+        model_name="Qwen/Qwen3-4B-Thinking-2507",
+        display_name="qwen-base-awm (AWM prompt)",
+        url="https://huggingface.co/Qwen/Qwen3-4B-Thinking-2507",
+        org="Qwen",
+        license="apache-2.0",
+        model_handler=AWMFormatHandler,
+        input_price=None,
+        output_price=None,
+        is_fc_model=False,
+        underscore_to_dot=False,
+    ),
     #custom model
     "qwen-finetuned-FC": ModelConfig(
         model_name="Jakemu/Qwen3-4B-Thinking-awm-async-grpo-100",
@@ -1705,6 +1718,18 @@ local_inference_model_map = {
         input_price=None,
         output_price=None,
         is_fc_model=True,
+        underscore_to_dot=False,
+    ),
+    "qwen-finetuned-100-awm": ModelConfig(
+        model_name="Jakemu/Qwen3-4B-Thinking-awm-async-grpo-100",
+        display_name="qwen-finetuned-100-awm (AWM prompt)",
+        url="https://huggingface.co/Jakemu/Qwen3-4B-Thinking-awm-async-grpo-100",
+        org="Qwen",
+        license="apache-2.0",
+        model_handler=AWMFormatHandler,
+        input_price=None,
+        output_price=None,
+        is_fc_model=False,
         underscore_to_dot=False,
     ),
     #custom model
