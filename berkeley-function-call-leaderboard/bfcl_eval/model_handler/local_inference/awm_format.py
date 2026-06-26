@@ -14,6 +14,7 @@ Instead the full tool catalog is embedded in the system prompt up front
 is rewritten to the bare ``X(**Y)`` call string the executor expects.
 """
 
+import ast
 import json
 import re
 from datetime import date
