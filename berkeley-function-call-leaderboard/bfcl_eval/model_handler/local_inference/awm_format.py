@@ -324,8 +324,8 @@ class AWMFormatHandler(QwenHandler):
             "(task presumed complete). Proceed to next turn."
         )
 
-    @override
-    def decode_execute(self, result, has_tool_call_tag=False):
+    def _decode_awm_tool_calls(self, result: str, include_list_tools: bool) -> list[dict]:
+        """Decode AWM wrapper calls to BFCL's direct `{function: arguments}` shape."""
         blocks = _TOOL_CALL_RE.findall(result)
         if not blocks:
             # Some responses emit the bare JSON without the XML tags.
@@ -346,9 +346,10 @@ class AWMFormatHandler(QwenHandler):
                 name = call.get("name")
                 args = call.get("arguments", {})
                 if name == "list_tools":
-                    # Catalog is already in the prompt; resolve to a no-op message
-                    # so the turn keeps going instead of decoding to empty.
-                    decoded.append({"list_tools": {}})
+                    if include_list_tools:
+                        # Catalog is already in the prompt; resolve to a no-op message
+                        # so the turn keeps going instead of decoding to empty.
+                        decoded.append({"list_tools": {}})
                 elif name == "call_tool":
                     args = args if isinstance(args, dict) else {}
                     tool_name = args.get("tool_name")
@@ -363,5 +364,19 @@ class AWMFormatHandler(QwenHandler):
             # No `<tool_call>` JSON found: the model wrote the system-prompt's bare
             # `call_tool(tool_name=..., arguments=...)` text form instead.
             decoded = _decode_bare_calls(result)
+            if not include_list_tools:
+                decoded = [call for call in decoded if "list_tools" not in call]
 
+        return decoded
+
+    @override
+    def decode_ast(self, result, language, has_tool_call_tag=False):
+        decoded = self._decode_awm_tool_calls(result, include_list_tools=False)
+        if decoded:
+            return decoded
+        return super().decode_ast(result, language, has_tool_call_tag)
+
+    @override
+    def decode_execute(self, result, has_tool_call_tag=False):
+        decoded = self._decode_awm_tool_calls(result, include_list_tools=True)
         return decoded_output_to_execution_list(decoded)
