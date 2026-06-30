@@ -325,13 +325,13 @@ class OSSHandler(BaseHandler, EnforceOverrides):
         # Tokenize the formatted prompt to get token count
         input_token_count = len(self.tokenizer.tokenize(formatted_prompt))
 
-        # Determine the number of tokens to request. Cap it at 8192 if the model has a larger limit.
+        # Determine the number of tokens to request. Cap it at 10240 if the model has a larger limit.
         if self.max_context_length < input_token_count + 2:
             # If the prompt is already at the max length, just request 1000 token, we will get an error anyway
             leftover_tokens_count = 1000
         else:
             leftover_tokens_count = min(
-                8192,
+                10240,
                 self.max_context_length - input_token_count - 2,
             )
 
