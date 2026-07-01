@@ -1732,6 +1732,18 @@ local_inference_model_map = {
         is_fc_model=False,
         underscore_to_dot=False,
     ),
+    "qwen-finetuned-200-awm": ModelConfig(
+        model_name="Jakemu/Qwen3-4B-Thinking-awm-async-grpo-200",
+        display_name="qwen-finetuned-200-awm (AWM prompt)",
+        url="https://huggingface.co/Jakemu/Qwen3-4B-Thinking-awm-async-grpo-200",
+        org="Qwen",
+        license="apache-2.0",
+        model_handler=AWMFormatHandler,
+        input_price=None,
+        output_price=None,
+        is_fc_model=False,
+        underscore_to_dot=False,
+    ),
     #custom model
     "Arctic-AWM-4B-FC": ModelConfig(
         model_name="Snowflake/Arctic-AWM-4B",
